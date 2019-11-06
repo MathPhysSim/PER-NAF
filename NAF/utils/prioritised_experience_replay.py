@@ -8,7 +8,7 @@ import numpy as np
 import random
 
 # from utils.segment_tree import SumSegmentTree, MinSegmentTree
-from NAF_new.utils.segment_tree import MinSegmentTree, SumSegmentTree
+from NAF.utils.segment_tree import MinSegmentTree, SumSegmentTree
 
 
 class ReplayBuffer(object):

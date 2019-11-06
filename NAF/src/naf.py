@@ -1,14 +1,14 @@
 import pickle
 from logging import getLogger
 
-from NAF_new.src import core
+from NAF.src import core
 
 logger = getLogger(__name__)
 
 
 import numpy as np
 import tensorflow as tf
-from NAF_new.utils.prioritised_experience_replay import PrioritizedReplayBuffer
+from NAF.utils.prioritised_experience_replay import PrioritizedReplayBuffer
 
 
 class ReplayBuffer:
