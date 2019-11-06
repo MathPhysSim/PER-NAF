@@ -16,3 +16,10 @@ Thanks openAI and Kim!
 * Visualise as much as possible to get an intuition about the method as possible bugs
 * If it does not make sense it is a bug with very high probability
 
+
+
+> Coding makes happy 
+
+
+
+

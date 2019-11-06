@@ -1,4 +1,6 @@
 import os
+import pickle
+
 import time
 
 import matplotlib.pyplot as plt
@@ -57,9 +59,11 @@ def plot_results(env, label):
 
     ax = axs[1]
     ax.plot(finals, 'r--')
-    ax.plot(starts, c='lime')
+
     ax.set_title('Final reward per episode')  # + plot_suffix)
     ax.set_xlabel('Episodes (1)')
+    ax1 = ax.tw
+    ax.plot(starts, c='lime')
     plt.savefig(label+'.pdf')
     # fig.tight_layout()
     plt.show()
@@ -101,13 +105,18 @@ def main(_):
     update_repeat = 7
     max_episodes = 50
     tau = 1 - 0.999
-    is_train = True
-    is_continued = True
+    is_train = False
+    is_continued = False
 
     nafnet_kwargs = dict(hidden_sizes=[16, 16], activation=tf.nn.tanh
                          , weight_init=tf.random_uniform_initializer(-0.05, 0.05))
 
     prio_info = dict(alpha=.5, beta=.5)
+
+    filename = 'Scan_data.obj'
+    filehandler = open(filename, 'rb')
+    scan_data = pickle.load(filehandler)
+
 
     with tf.Session() as sess:
         # statistics and running the agent
@@ -116,7 +125,7 @@ def main(_):
         # init the agent
         agent = NAF(sess=sess, env=env, stat=stat, discount= discount, batch_size=batch_size,
                     learning_rate=learning_rate, max_steps=max_steps, update_repeat=update_repeat,
-                    max_episodes=max_episodes, tau=tau, prio_info=prio_info, **nafnet_kwargs)
+                    max_episodes=max_episodes, tau=tau, pretune = scan_data, prio_info=prio_info, **nafnet_kwargs)
         # run the agent
         agent.run(is_train)
 

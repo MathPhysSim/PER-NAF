@@ -36,6 +36,7 @@ class simpleEnv(gym.Env):
             self.dimension = kwargs.get('dof')
         else:
             self.dimension = 10
+
         self.MAX_POS = 2
         self.action_space = gym.spaces.Box(low=-self.MAX_POS, high=self.MAX_POS, shape=(self.dimension,),
                                            dtype=np.float32)

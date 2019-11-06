@@ -115,7 +115,6 @@ class Statistic(object):
         # print("Saving checkpoints... implement this again")
         model_name = type(self).__name__
         folder_name = self.model_dir
-        print(self.sess.run('main/V/fully_connected/weights:0'))
         self.saver.save(self.sess, folder_name + "test.ckpt", global_step=self.t)
 
     def load_model(self):

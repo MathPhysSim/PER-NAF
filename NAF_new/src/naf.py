@@ -1,3 +1,4 @@
+import pickle
 from logging import getLogger
 
 from NAF_new.src import core
@@ -78,8 +79,9 @@ class NAF(object):
     def __init__(self, sess,
                  env, stat,
                  discount, batch_size, learning_rate,
-                 max_steps, update_repeat, max_episodes, tau, prio_info=dict(), **nafnet_kwargs):
+                 max_steps, update_repeat, max_episodes, tau, pretune = None, prio_info=dict(), **nafnet_kwargs):
 
+        self.pretune = pretune
         self.prio_info = prio_info
         self.per_flag = bool(self.prio_info)
         print('PER is:', self.per_flag)
@@ -140,16 +142,39 @@ class NAF(object):
         self.stat.load_model()  # including init
         # if is_train:
         #     self.sess.run(self.target_init)
+
+        # pretune------------------------------------------------------------------------------
+        if not(self.pretune is None):
+            scan_data = self.pretune
+            print('Length of scan data is: ', len(scan_data))
+
+            if scan_data:
+                for i, data in enumerate(scan_data):
+                    o, a, r, o2, d, _ = data
+                    self.replay_buffer.store(o, a, r, o2, d)
+                    print("Number: ", i)
+                    print(o, a, r, o2, d)
+
+            batch_size_temp = self.batch_size
+            self.batch_size = 10
+            for _ in range(50*len(scan_data)):
+                q, v, a, l = self.perceive()
+                if self.stat:
+                    self.stat.on_step(a, r, d, q, v, a, l)
+
+            self.batch_size = batch_size_temp
+        # -------------------------------------------------------------------------
+
         for self.idx_episode in range(self.max_episodes):
-            state = self.env.reset()
+            o = self.env.reset()
             for t in range(0, self.max_steps):
                 # 1. predict
-                a = self.predict(state, is_train)
+                a = self.predict(o, is_train)
                 # 2. step
-                o = state
                 o2, r, d, _ = self.env.step(a)
                 if is_train:
-                    self.replay_buffer.store(o, a, r, state, d)
+                    self.replay_buffer.store(o, a, r, o2, d)
+                o = o2
                 d = False if t == self.max_steps - 1 else d
                 # 3. perceive
                 if is_train:
@@ -163,7 +188,7 @@ class NAF(object):
     def predict(self, state, is_train):
         u = self.sess.run(self.mu, feed_dict={self.x_ph: [state]})[0]
         if is_train:
-            noise_scale = 0#1 / (self.idx_episode + 1)
+            noise_scale = 0 / (self.idx_episode + 1)
             return u + noise_scale * np.random.randn(self.action_size)
         else:
             return u
