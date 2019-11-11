@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-from NAF_new.src.naf import NAF
-from NAF_new.src.statistic import Statistic
+from NAF_debug.src.naf import NAF
+from NAF_debug.src.statistic import Statistic
+
 from simple_environment import simpleEnv
 
 # set random seed
@@ -24,7 +25,7 @@ env.seed(random_seed)
 
 for _ in range(10):
     env.reset()
-label = 'New NAF on: '+'DOF: '+str(dof) + ' '+ env.__name__
+label = 'New NAF_debug on: '+'DOF: '+str(dof) + ' '+ env.__name__
 
 directory = "checkpoints/test_implementation/"
 
@@ -62,8 +63,12 @@ def plot_results(env, label):
 
     ax.set_title('Final reward per episode')  # + plot_suffix)
     ax.set_xlabel('Episodes (1)')
-    ax1 = ax.tw
-    ax.plot(starts, c='lime')
+
+    ax1 = plt.twinx(ax)
+    color = 'lime'
+    ax1.set_ylabel('V', color=color)  # we already handled the x-label with ax1
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax1.plot(starts, color=color)
     plt.savefig(label+'.pdf')
     # fig.tight_layout()
     plt.show()
@@ -97,7 +102,9 @@ def plot_convergence(agent, label):
     plt.savefig(label + 'convergence' + '.pdf')
     plt.show()
 
-def main(_):
+
+if __name__ == '__main__':
+
     discount = 0.999
     batch_size = 10
     learning_rate = 1e-3
@@ -111,7 +118,7 @@ def main(_):
     nafnet_kwargs = dict(hidden_sizes=[16, 16], activation=tf.nn.tanh
                          , weight_init=tf.random_uniform_initializer(-0.05, 0.05))
 
-    prio_info = dict(alpha=.5, beta=.5)
+    prio_info = dict(alpha=.15, beta=.85)
 
     filename = 'Scan_data.obj'
     filehandler = open(filename, 'rb')
@@ -133,17 +140,3 @@ def main(_):
     plot_convergence(agent=agent, label=label)
     plot_results(env, label)
 
-
-if __name__ == '__main__':
-
-    # if not os.path.exists(directory):
-    #     os.makedirs(directory)
-    # else:
-    #     for f in os.listdir(directory):
-    #         print('Deleting: ', directory + '/' + f)
-    #         os.remove(directory + '/' + f)
-    #     time.sleep(3)
-    #
-    tf.app.run()
-
-    plt.show()
