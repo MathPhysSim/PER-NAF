@@ -1,3 +1,0 @@
-tensorflow==1.14
-numpy
-logging
