@@ -3,15 +3,15 @@ import pickle
 
 import time
 
+import gym
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-from NAF_debug.src.naf import NAF
-from NAF_debug.src.statistic import Statistic
-
+from pernaf.pernaf.naf import NAF
+from pernaf.pernaf.utils.statistic import Statistic
 from simple_environment import simpleEnv
-
+# from pendulum import PendulumEnv as simpleEnv
 # set random seed
 random_seed = 888
 # set random seed
@@ -21,10 +21,14 @@ np.random.seed(random_seed)
 
 dof = 5
 env = simpleEnv(dof=dof)
+env = simpleEnv()
+# env = gym.make("Pendulum-v0").env
+# env.__name__ = 'Pendulum'
 env.seed(random_seed)
 
 for _ in range(10):
     env.reset()
+
 label = 'New NAF_debug on: '+'DOF: '+str(dof) + ' '+ env.__name__
 
 directory = "checkpoints/test_implementation/"
@@ -35,7 +39,7 @@ def plot_results(env, label):
     # plotting
     print('now plotting')
     rewards = env.rewards
-    initial_states = env.initial_conditions
+    # initial_states = env.initial_conditions
 
     iterations = []
     finals = []
@@ -46,7 +50,7 @@ def plot_results(env, label):
     for i in range(len(rewards)):
         if (len(rewards[i]) > 0):
             finals.append(rewards[i][len(rewards[i]) - 1])
-            starts.append(-np.sqrt(np.mean(np.power(initial_states[i], 2))))
+            # starts.append(-np.sqrt(np.mean(np.power(initial_states[i], 2))))
             iterations.append(len(rewards[i]))
 
     plot_suffix = f', number of iterations: {env.TOTAL_COUNTER}, Linac4 time: {env.TOTAL_COUNTER / 600:.1f} h'
@@ -64,11 +68,11 @@ def plot_results(env, label):
     ax.set_title('Final reward per episode')  # + plot_suffix)
     ax.set_xlabel('Episodes (1)')
 
-    ax1 = plt.twinx(ax)
-    color = 'lime'
-    ax1.set_ylabel('V', color=color)  # we already handled the x-label with ax1
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.plot(starts, color=color)
+    # ax1 = plt.twinx(ax)
+    # color = 'lime'
+    # ax1.set_ylabel('V', color=color)  # we already handled the x-label with ax1
+    # ax1.tick_params(axis='y', labelcolor=color)
+    # ax1.plot(starts, color=color)
     plt.savefig(label+'.pdf')
     # fig.tight_layout()
     plt.show()
@@ -90,10 +94,10 @@ def plot_convergence(agent, label):
     ax.plot(losses, color=color)
     ax.tick_params(axis='y', labelcolor=color)
     ax.set_ylabel('td_loss', color=color)
-    ax.set_ylim(0, 1)
+    # ax.set_ylim(0, 1)
 
     ax1 = plt.twinx(ax)
-    ax1.set_ylim(-2, 1)
+    # ax1.set_ylim(-2, 1)
     color = 'lime'
 
     ax1.set_ylabel('V', color=color)  # we already handled the x-label with ax1
@@ -105,34 +109,37 @@ def plot_convergence(agent, label):
 
 if __name__ == '__main__':
 
-    discount = 0.999
-    batch_size = 10
+    discount = 0.99
+    batch_size = 50
     learning_rate = 1e-3
-    max_steps = 150
-    update_repeat = 7
-    max_episodes = 50
+    max_steps = 200
+    update_repeat = 5
+    max_episodes = 10
     tau = 1 - 0.999
-    is_train = False
+    is_train = True
     is_continued = False
 
-    nafnet_kwargs = dict(hidden_sizes=[16, 16], activation=tf.nn.tanh
+    nafnet_kwargs = dict(hidden_sizes=[100, 100], activation=tf.nn.tanh
                          , weight_init=tf.random_uniform_initializer(-0.05, 0.05))
 
-    prio_info = dict(alpha=.15, beta=.85)
+    noise_info = dict(noise_function = lambda nr: max(0, (1-nr/10)))
 
-    filename = 'Scan_data.obj'
-    filehandler = open(filename, 'rb')
-    scan_data = pickle.load(filehandler)
+    prio_info = dict(alpha=.9, beta=.9)
+
+    # filename = 'Scan_data.obj'
+    # filehandler = open(filename, 'rb')
+    # scan_data = pickle.load(filehandler)
 
 
     with tf.Session() as sess:
         # statistics and running the agent
         stat = Statistic(sess=sess, env_name=env.__name__, model_dir=directory,
-                         max_update_per_step=update_repeat, is_continued=is_continued)
+                         max_update_per_step=update_repeat, is_continued=is_continued, save_frequency=500)
         # init the agent
         agent = NAF(sess=sess, env=env, stat=stat, discount= discount, batch_size=batch_size,
                     learning_rate=learning_rate, max_steps=max_steps, update_repeat=update_repeat,
-                    max_episodes=max_episodes, tau=tau, pretune = scan_data, prio_info=prio_info, **nafnet_kwargs)
+                    max_episodes=max_episodes, tau=tau, pretune = None, prio_info=prio_info,
+                    noise_info=noise_info, **nafnet_kwargs)
         # run the agent
         agent.run(is_train)
 

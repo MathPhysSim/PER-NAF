@@ -39,7 +39,7 @@ def reqs(*f):
 
 setup(
     name='pernaf',
-    version="0.0.13",
+    version="0.0.14",
     author="Simon Hirlaender",
     author_email="simon.hirlaender@cern.ch",
     description="An implementation of the Normalized Advantage Function Reinforcement Learning Algorithm with "

@@ -121,10 +121,8 @@ class Statistic(object):
         logger.info("Loading checkpoints...")
         # initialize all of the variables
         init_op = tf.global_variables_initializer()  # create the graph
-
         self.sess.run(init_op)
         # [print(x) for x in tf.global_variables()]
-
         folder_name = self.model_dir
         ckpt = tf.train.get_checkpoint_state(folder_name)
         print(ckpt)
@@ -134,10 +132,8 @@ class Statistic(object):
             print(fname)
             # val = [x for x in tf.global_variables() if 'target/V/fully_connected/weights:0' in x.name][0]
             # print(self.sess.run(val))
-
             self.saver.restore(self.sess, fname)
             # [print(x) for x in tf.global_variables()]
-
             logger.info("Load SUCCESS: ")
             # val = [x for x in tf.global_variables() if 'target/V/fully_connected/weights:0' in x.name][0]
             # print(self.sess.run(val))

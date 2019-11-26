@@ -62,7 +62,7 @@ class simpleEnv(gym.Env):
         state, reward = self._take_action(action)
         self.action_episode_memory[self.curr_episode].append(action)
         self.rewards[self.curr_episode].append(reward)
-        if reward < - 10 or reward > -1 or self.curr_step > self.MAX_TIME:
+        if reward < - 10 or reward > -.5 or self.curr_step > self.MAX_TIME:
             self.is_finalized = True
 
         # if self.is_finalized:
@@ -90,7 +90,7 @@ class simpleEnv(gym.Env):
         self.rewards.append([])
 
         self.is_finalized = False
-        init_state, init_reward = self._take_action(4*np.random.randn(self.dimension))
+        init_state, init_reward = self._take_action(np.random.randn(self.dimension))
         self.initial_conditions.append(init_state)
         return init_state
 

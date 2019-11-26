@@ -78,15 +78,33 @@ class NAF(object):
     def __init__(self, sess,
                  env, stat,
                  discount, batch_size, learning_rate,
-                 max_steps, update_repeat, max_episodes, tau, pretune = None, prio_info=dict(), **nafnet_kwargs):
-
+                 max_steps, update_repeat, max_episodes, tau, pretune = None, prio_info=dict(), noise_info=dict(), **nafnet_kwargs):
+        '''
+        :param sess: current tensorflow session
+        :param env: open gym environment to be solved
+        :param stat: statistic class to handle tensorflow and statitics
+        :param discount: discount factor
+        :param batch_size: batch size for the training
+        :param learning_rate: learning rate
+        :param max_steps: maximal steps per episode
+        :param update_repeat: iteration per step of training
+        :param max_episodes: maximum number of episodes
+        :param tau: polyac averaging
+        :param pretune: list of tuples of state action reward next state done
+        :param prio_info: parameters to handle the prioritizing of the buffer
+        :param nafnet_kwargs: keywords to handle the network
+        :param noise_info: dict with noise_function
+        '''
         self.pretune = pretune
         self.prio_info = prio_info
         self.per_flag = bool(self.prio_info)
         print('PER is:', self.per_flag)
         self.sess = sess
         self.env = env
-
+        if 'noise_function' in noise_info:
+            self.noise_function = noise_info.get('noise_function')
+        else:
+            self.noise_function = lambda nr: 1/(nr+1)
         self.x_ph, self.a_ph, self.mu, self.V, self.Q, self.P, self.A, self.vars_pred \
             = core.mlp_normalized_advantage_function(env.observation_space.shape, act_dim=env.action_space.shape,
                                                      **nafnet_kwargs,
@@ -187,7 +205,7 @@ class NAF(object):
     def predict(self, state, is_train):
         u = self.sess.run(self.mu, feed_dict={self.x_ph: [state]})[0]
         if is_train:
-            noise_scale = 1 / (self.idx_episode + 1)
+            noise_scale = self.noise_function(self.idx_episode)
             return u + noise_scale * np.random.randn(self.action_size)
         else:
             return u
