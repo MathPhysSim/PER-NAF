@@ -1,0 +1,5 @@
+include HISTORY.txt
+include README.md
+include CHANGES.txt
+include CONTRIBUTORS.txt
+include LICENSE
