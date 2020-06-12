@@ -39,7 +39,7 @@ def plot_results(env, label):
     # plotting
     print('now plotting')
     rewards = env.rewards
-    # initial_states = env.initial_conditions
+    initial_states = env.initial_conditions
 
     iterations = []
     finals = []
@@ -50,6 +50,7 @@ def plot_results(env, label):
     for i in range(len(rewards)):
         if (len(rewards[i]) > 0):
             finals.append(rewards[i][len(rewards[i]) - 1])
+            starts.append(-np.sqrt(np.mean(np.power(initial_states[i], 2))))
             # starts.append(-np.sqrt(np.mean(np.power(initial_states[i], 2))))
             iterations.append(len(rewards[i]))
 
@@ -91,7 +92,7 @@ def plot_convergence(agent, label):
     ax.set_xlabel('episodes')
 
     color = 'tab:blue'
-    ax.plot(losses, color=color)
+    ax.semilogy(losses, color=color)
     ax.tick_params(axis='y', labelcolor=color)
     ax.set_ylabel('td_loss', color=color)
     # ax.set_ylim(0, 1)
@@ -109,12 +110,12 @@ def plot_convergence(agent, label):
 
 if __name__ == '__main__':
 
-    discount = 0.99
-    batch_size = 50
+    discount = 0.999
+    batch_size = 10
     learning_rate = 1e-3
     max_steps = 200
     update_repeat = 5
-    max_episodes = 10
+    max_episodes = 100
     tau = 1 - 0.999
     is_train = True
     is_continued = False
@@ -122,10 +123,10 @@ if __name__ == '__main__':
     nafnet_kwargs = dict(hidden_sizes=[100, 100], activation=tf.nn.tanh
                          , weight_init=tf.random_uniform_initializer(-0.05, 0.05))
 
-    noise_info = dict(noise_function = lambda nr: max(0, (1-nr/10)))
+    noise_info = dict(noise_function = lambda nr: max(0.00001, 1-nr/100))
 
-    prio_info = dict(alpha=.9, beta=.9)
-
+    prio_info = dict(alpha=.95, beta_start=.9, beta_decay = lambda nr: max(0.00001, 1-nr/25))
+    # prio_info = dict()
     # filename = 'Scan_data.obj'
     # filehandler = open(filename, 'rb')
     # scan_data = pickle.load(filehandler)
