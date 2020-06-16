@@ -60,13 +60,17 @@ class ReplayBufferPER(PrioritizedReplayBuffer):
         self.ptr = (self.ptr + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
 
-    def sample_batch(self, batch_size=32):
+    def sample_batch(self, batch_size=32, **kwargs):
+        if 'beta' in kwargs:
+            self.beta = kwargs.get('beta')
+            # print('kw beta', self.beta)
+            # print('test', self.size, batch_size)
         if self.size < batch_size:
             batch_size = self.size
             obs1, acts, rews, obs2, done, gammas, weights, idxs = super(ReplayBufferPER, self).sample_normal(batch_size)
         else:
-            obs1, acts, rews, obs2, done, gammas, weights, idxs = super(ReplayBufferPER, self).sample(batch_size,
-                                                                                                      self.beta)
+            obs1, acts, rews, obs2, done, gammas, weights, idxs = super(ReplayBufferPER, self).sample(batch_size=batch_size,
+                                                                                                      beta=self.beta)
         return dict(obs1=obs1,
                     obs2=obs2,
                     acts=acts,
@@ -105,6 +109,19 @@ class NAF(object):
             self.noise_function = noise_info.get('noise_function')
         else:
             self.noise_function = lambda nr: 1/(nr+1)
+
+        if 'batch_info' in nafnet_kwargs:
+            self.batch_function = nafnet_kwargs.get('batch_info')
+            print(10*'-', self.batch_function)
+        else:
+            self.batch_function = lambda nr: self.batch_size
+
+        if 'beta_decay' in prio_info:
+            self.beta_decay_function = prio_info.get('beta_decay')
+        elif self.per_flag:
+            self.beta_decay_function = lambda nr: max(1e-12, prio_info.get('beta_start')-nr/100)
+        else:
+            self.beta_decay_function = lambda nr: 1
         self.x_ph, self.a_ph, self.mu, self.V, self.Q, self.P, self.A, self.vars_pred \
             = core.mlp_normalized_advantage_function(env.observation_space.shape, act_dim=env.action_space.shape,
                                                      **nafnet_kwargs,
@@ -124,6 +141,7 @@ class NAF(object):
         self.max_steps = max_steps
         self.update_repeat = update_repeat
         self.max_episodes = max_episodes
+        self.current_step = 0
 
         if not (self.per_flag):
             self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.action_size, size=int(1e6))
@@ -184,6 +202,7 @@ class NAF(object):
 
         for self.idx_episode in range(self.max_episodes):
             o = self.env.reset()
+            print('episode:', self.idx_episode)
             for t in range(0, self.max_steps):
                 # 1. predict
                 a = self.predict(o, is_train)
@@ -194,6 +213,7 @@ class NAF(object):
                 o = o2
                 d = False if t == self.max_steps - 1 else d
                 # 3. perceive
+                self.current_step = t
                 if is_train:
                     pass
                     q, v, a, l = self.perceive()
@@ -216,17 +236,25 @@ class NAF(object):
         a_list = []
         l_list = []
 
+        beta_decay = self.beta_decay_function(self.idx_episode)
+        batch_size = self.batch_function(self.idx_episode)
+
         for iteration in range(self.update_repeat):
             if self.per_flag:
-                batch, priority_info = self.replay_buffer.sample_batch(self.batch_size)
+                batch, priority_info = self.replay_buffer.sample_batch(batch_size=batch_size, beta = beta_decay)
             else:
-                batch = self.replay_buffer.sample_batch(self.batch_size)
+                batch = self.replay_buffer.sample_batch(batch_size)
 
             o = batch['obs1']
             o2 = batch['obs2']
             a = batch['acts']
             r = batch['rews']
-            w = priority_info[0]
+
+            if self.per_flag:
+                w = priority_info[0]
+                # print('weights', w)
+            else:
+                w = np.ones(r.shape[-1])
 
             v = self.sess.run(self.V_targ, feed_dict={self.x_ph_targ: o2, self.a_ph_targ: a})
             target_y = self.discount * np.squeeze(v) + r
@@ -249,13 +277,19 @@ class NAF(object):
             # self.target_network.soft_update_from(self.pred_network)
 
             if self.per_flag:
-                priorities = np.ones(priority_info[0].shape[-1]) * (abs(l) * 1 + 1e-7)
+                # priorities = np.ones(priority_info[0].shape[-1]) * (abs(l) * 1 + 1e-7)
+                factor =  1e-12+ abs(l) * (beta_decay)
+                # print('fac', factor)
+                priorities = np.ones(priority_info[0].shape[-1]) * factor
+                # print('priorities', priorities)
                 self.replay_buffer.update_priorities(idxes=priority_info[1], priorities=priorities)
 
-            logger.debug("q: %s, v: %s, a: %s, l: %s" \
-                         % (np.mean(q), np.mean(v), np.mean(a), np.mean(l)))
+            logger.debug("ep:,%s, q: %s, v: %s, a: %s, l: %s" \
+                         % (self.idx_episode, np.mean(q), np.mean(v), np.mean(a), np.mean(l)))
         self.sess.run(self.target_update)
         self.losses.append(np.mean(l))
         self.vs.append(np.mean(v))
-
+        # print('batch_size', batch_size)
         return np.sum(q_list), np.sum(v_list), np.sum(a_list), np.sum(l_list)
+
+

@@ -1,7 +1,10 @@
 import pickle
 
-import per_naf
+import pernaf_v2
 import matplotlib.pyplot as plt
+
+from pernaf_v2.pernaf.naf import NAF
+from pernaf_v2.pernaf.utils.statistic import Statistic
 from simple_environment import simpleEnv
 import tensorflow as tf
 import numpy as np
@@ -9,7 +12,7 @@ import numpy as np
 # set random seed
 random_seed = 888
 # set random seed
-tf.set_random_seed(random_seed)
+tf.random.set_seed(random_seed)
 np.random.seed(random_seed)
 
 
@@ -104,15 +107,15 @@ if __name__ == '__main__':
     learning_rate = 1e-3
     max_steps = 150
     update_repeat = 7
-    max_episodes = 50
+    max_episodes = 15
     tau = 1 - 0.999
-    is_train = False
+    is_train = True
     is_continued = False
 
     nafnet_kwargs = dict(hidden_sizes=[16, 16], activation=tf.nn.tanh
                          , weight_init=tf.random_uniform_initializer(-0.05, 0.05))
 
-    prio_info = dict(alpha=.15, beta=.85)
+    prio_info = dict(alpha=.5, beta=.5)
 
     filename = 'Scan_data.obj'
     filehandler = open(filename, 'rb')

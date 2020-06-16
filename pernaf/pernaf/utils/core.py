@@ -40,7 +40,7 @@ Normalize Advantage Function
 
 def mlp_normalized_advantage_function(x, act_dim, hidden_sizes=(100,100), activation=tf.tanh,
                                       output_activation=tf.tanh, action_space=None, weight_init=None,
-                                      act_multiplier=1, scope=None):
+                                      act_multiplier=1, scope=None, **kwargs):
     with tf.variable_scope(scope):
         # act_dim = a.shape.as_list()[-1]
         act_dim = act_dim[0]
