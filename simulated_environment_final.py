@@ -10,7 +10,7 @@ import numpy as np
 from gym import spaces
 from numpy import matrix
 
-filename_awakeElectron = '../InfrastructuralData/electron_tt43.out'
+filename_awakeElectron = 'electron_tt43.out'
 
 FACTOR_UM = 1000000.0  # TODO: when to scale?
 
@@ -129,10 +129,10 @@ def readTwissFromMADX(inputFile, name=''):
 
 def readAWAKEelectronTwiss():
     try:
-        filename_awakeElectron = '../InfrastructuralData/electron_tt43.out'
+        # filename_awakeElectron = '../InfrastructuralData/electron_tt43.out'
         twissH, twissV = readTwissFromMADX(filename_awakeElectron)
     except:
-        filename_awakeElectron = 'InfrastructuralData/electron_tt43.out'
+        # filename_awakeElectron = 'InfrastructuralData/electron_tt43.out'
         twissH, twissV = readTwissFromMADX(filename_awakeElectron)
     return twissH, twissV
 
