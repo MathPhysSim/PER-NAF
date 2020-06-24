@@ -1,10 +1,16 @@
+import os
+import random
+import time
+
 import tensorflow as tf
 from tensorflow import keras
 import numpy as np
-from tensorflow_core.python.keras.losses import MSE
+# from tensorflow_core.python.keras.losses import MSE
+from tensorflow.python.keras.losses import MSE
 from tqdm import tqdm
 
 from pernaf.pernaf.utils.prioritised_experience_replay import PrioritizedReplayBuffer
+
 
 class ReplayBuffer:
     """
@@ -69,6 +75,7 @@ class ReplayBufferPER(PrioritizedReplayBuffer):
                     rews=rews,
                     done=done), [weights, idxs]
 
+
 def basic_loss_function(y_true, y_pred):
     return tf.math.reduce_mean(y_true - y_pred)
 
@@ -100,6 +107,7 @@ class QModel():
         for hidden_dim in hidden_sizes:
             h = fc(h, hidden_dim)
         V = fc(h, 1, name='V')
+
         l = fc(h, (act_dim * (act_dim + 1) / 2))
         mu = fc(h, act_dim, name='mu')
 
@@ -120,9 +128,14 @@ class QModel():
         A = tf.reshape(A, [-1, 1])
         Q = A + V
 
-        self.learning_rate = 1e-4
-        if 'self.learning_rate' in kwargs:
-            self.learning_rate = kwargs.get('self.learning_rate')
+        self.learning_rate = 1e-3
+        if 'learning_rate' in kwargs:
+            self.learning_rate = kwargs.get('learning_rate')
+            # print('learning rate', self.learning_rate )
+        if 'directory' in kwargs:
+            self.directory = kwargs.get('directory')
+        else:
+            self.directory = None
 
         self.q_model = keras.Model(inputs=inputs, outputs=Q)
         self.q_model.compile(keras.optimizers.Adam(learning_rate=self.learning_rate), loss=MSE)
@@ -134,6 +147,8 @@ class QModel():
         # Value output
         self.model_value_estimate = keras.Model(inputs=self.q_model.layers[0].input,
                                                 outputs=self.q_model.get_layer(name='V').output)
+
+        # self.q_model.summary()
 
     def get_action(self, state):
         state = np.array([state])
@@ -148,27 +163,33 @@ class QModel():
         input = np.concatenate((state, actions), axis=1)
         return self.model_value_estimate.predict(input)
 
-    def set_polyak_weights(self, weights, polyak = 0.999):
-        old_weights = self.get_weights()
-        weights = [polyak * old_weights[i] + (1-polyak) * weights[i] for i in range(len(weights))]
-        self.q_model.set_weights(weights=weights)
+    def set_polyak_weights(self, weights, polyak=0.999):
+        weights_old = self.get_weights()
+        weights_new = [polyak * weights_old[i] + (1 - polyak) * weights[i] for i in range(len(weights))]
+        self.q_model.set_weights(weights=weights_new)
 
     def get_weights(self):
         return self.q_model.get_weights()
 
-    def train_model(self, batch_s, batch_a, batch_y):
+    def train_model(self, batch_s, batch_a, batch_y, **kwargs):
         batch_x = np.concatenate((batch_s, batch_a), axis=1)
-        hist = self.q_model.fit(batch_x, batch_y, verbose=0)
+        hist = self.q_model.fit(batch_x, batch_y, verbose=0, **kwargs)
         return hist.history['loss']
+
+    def save_model(self, directory):
+        try:
+            self.q_model.save(filepath=directory, overwrite=True)
+        except:
+            print('Saving failed')
 
 
 class NAF(object):
     def __init__(self, env, discount, batch_size, learning_rate,
-                 max_steps, update_repeat, max_episodes, polyak=0.999, pretune = None, prio_info=dict(),
-                 noise_info=dict(), **nafnet_kwargs):
+                 max_steps, update_repeat, max_episodes, polyak=0.999, pretune=None, prio_info=dict(),
+                 noise_info=dict(), save_frequency=500, directory=None, is_continued=False, **nafnet_kwargs):
         '''
-        :param sess: current tensorflow session
         :param env: open gym environment to be solved
+        :param directory: directory were weigths are saved
         :param stat: statistic class to handle tensorflow and statitics
         :param discount: discount factor
         :param batch_size: batch size for the training
@@ -182,6 +203,8 @@ class NAF(object):
         :param nafnet_kwargs: keywords to handle the network
         :param noise_info: dict with noise_function
         '''
+        self.directory = directory
+        self.save_frequency = save_frequency
         self.polyak = polyak
         self.losses = []
         self.pretune = pretune
@@ -194,7 +217,7 @@ class NAF(object):
         if 'noise_function' in noise_info:
             self.noise_function = noise_info.get('noise_function')
         else:
-            self.noise_function = lambda nr: 1/(nr+1)
+            self.noise_function = lambda nr: 1 / (nr + 1)
 
         self.discount = discount
         self.batch_size = batch_size
@@ -213,22 +236,58 @@ class NAF(object):
         else:
             self.replay_buffer = ReplayBufferPER(obs_dim=self.obs_dim, act_dim=self.action_size, size=int(1e6),
                                                  prio_info=prio_info)
+            if 'decay_function' in prio_info:
+                self.decay_function = prio_info.get('decay_function')
+            else:
+                self.decay_function = lambda nr: prio_info.get('beta')
 
-        self.q_main_model = QModel(obs_dim=self.obs_dim, act_dim=self.action_size, learning_rate=learning_rate)
-        self.q_target_model = QModel(obs_dim=self.obs_dim, act_dim=self.action_size)
+        self.q_main_model_1 = QModel(obs_dim=self.obs_dim, act_dim=self.action_size, learning_rate=learning_rate)
+        self.q_main_model_2 = QModel(obs_dim=self.obs_dim, act_dim=self.action_size, learning_rate=learning_rate)
+        # Set same initial values in all networks
+        self.q_main_model_2.q_model.set_weights(weights=self.q_main_model_1.q_model.get_weights())
+        # Set same initial values in all networks
+        self.q_target_model_1 = QModel(obs_dim=self.obs_dim, act_dim=self.action_size)
+        self.q_target_model_1.q_model.set_weights(weights=self.q_main_model_1.q_model.get_weights())
+        self.q_target_model_2 = QModel(obs_dim=self.obs_dim, act_dim=self.action_size)
+        self.q_target_model_2.q_model.set_weights(weights=self.q_main_model_1.q_model.get_weights())
+
+        if is_continued:
+            try:
+                # self.q_main.q_model = tf.keras.models.load_model(filepath=self.directory)
+                self.q_target_model_1.q_model = tf.keras.models.load_model(filepath=self.directory)
+                print('loaded', 10 * ' -')
+            except:
+                print('failed', 10 * ' *')
+                if not os.path.exists(self.directory):
+                    os.makedirs(self.directory)
+        else:
+            if not os.path.exists(self.directory):
+                os.makedirs(self.directory)
+            elif not (self.directory):
+                for f in os.listdir(self.directory):
+                    print('Deleting: ', self.directory + '/' + f)
+                    os.remove(self.directory + '/' + f)
+                time.sleep(.5)
+
+        self.counter = 0
 
     def predict(self, state, is_train):
-        u = self.q_main_model.get_action(state=state)
+
         if is_train:
+            action = self.q_main_model_1.get_action(state=state)
             noise_scale = self.noise_function(self.idx_episode)
-            return u + noise_scale * np.random.randn(self.action_size)
+            return action + noise_scale * np.random.randn(self.action_size)
         else:
-            return u
+            action = self.q_target_model_1.get_action(state=state)
+            return action
 
     def run(self, is_train=True):
-        for self.idx_episode in tqdm(range(0, self.max_episodes)):
+        for index in tqdm(range(0, self.max_episodes)):
+            self.idx_episode = index
             o = self.env.reset()
+
             for t in range(0, self.max_steps):
+                # print(self.idx_episode, t)
                 # 1. predict
                 a = self.predict(o, is_train)[0]
                 # 2. interact
@@ -247,32 +306,59 @@ class NAF(object):
     def update_q(self):
         vs = []
         losses = []
-        for iteration in range(self.update_repeat):
-            if self.per_flag:
-                batch, priority_info = self.replay_buffer.sample_batch(self.batch_size)
-            else:
-                batch = self.replay_buffer.sample_batch(self.batch_size)
+        self.counter += 1
+        decay = self.decay_function(self.idx_episode)
 
-            o = batch['obs1']
-            o2 = batch['obs2']
-            a = batch['acts']
-            r = batch['rews']
-            d = batch['done']
+        for model in [1,2]:
+            for iteration in range(self.update_repeat):
 
-            v = self.q_target_model.get_value_estimate(o2)
-            target_y = self.discount * np.squeeze(v)*(1-d) + r
-            loss = self.q_main_model.train_model(o, a, target_y)[0]
+                if self.per_flag:
+                    batch, priority_info = self.replay_buffer.sample_batch(self.batch_size)
+                else:
+                    batch = self.replay_buffer.sample_batch(self.batch_size)
 
-            # print('loss :', loss)
-            if self.per_flag:
-                priorities = np.ones(priority_info[0].shape[-1]) * (loss * 1 + 1e-7)
-                self.replay_buffer.update_priorities(idxes=priority_info[1], priorities=priorities)
-            vs.append(v)
-            losses.append(loss)
+                o = batch['obs1']
+                o2 = batch['obs2']
+                a = batch['acts']
+                r = batch['rews']
+                d = batch['done']
+                sample_weights = priority_info[0] * decay
+
+                v_1 = self.q_target_model_1.get_value_estimate(o2)
+                v_2 = self.q_target_model_2.get_value_estimate(o2)
+                v = np.where(v_1 < v_2, v_1, v_2)
+                target_y = self.discount * np.squeeze(v) * (1 - d) + r
+                # target_y = self.discount * np.squeeze(v) + r
+                # print(target_y)
+                if model == 1:
+                    loss = self.q_main_model_1.train_model(o, a, target_y, sample_weight=sample_weights)[0]
+                    vs.append(v)
+                    losses.append(loss)
+
+                else:
+                    loss = self.q_main_model_2.train_model(o, a, target_y, sample_weight=sample_weights)[0]
+
+                if self.per_flag:
+                    priorities = np.ones(priority_info[0].shape[-1]) * (loss * decay + 1e-7)
+                    self.replay_buffer.update_priorities(idxes=priority_info[1], priorities=priorities)
+                # print('loss :', loss)
+
+        self.q_target_model_1.set_polyak_weights(self.q_main_model_1.get_weights(), polyak=self.polyak)
+        self.q_target_model_2.set_polyak_weights(self.q_main_model_2.get_weights(), polyak=self.polyak)
+
         # print('ep:', self.idx_episode, 'loss :', np.mean(losses))
-        self.q_target_model.set_polyak_weights(self.q_main_model.get_weights(), polyak=self.polyak)
+        # if random.uniform(0, 1) < 0.5:
+        #     # print('network 1', np.mean(v_1))
+        #     self.q_target_model_1.set_polyak_weights(self.q_main_model_1.get_weights(), polyak=self.polyak)
+        # else:
+        #     self.q_target_model_2.set_polyak_weights(self.q_main_model_1.get_weights(), polyak=self.polyak)
+            # print('network 2',  np.mean(v_2))
+        if self.counter % self.save_frequency == 0:
+            # print('saving: ', self.counter)
+            self.q_target_model_1.save_model(directory=self.directory)
         self.vs.append(np.mean(v))
         self.losses.append(np.mean(losses))
+
 
 if __name__ == '__main__':
     print('start')
@@ -312,5 +398,3 @@ if __name__ == '__main__':
     # weights = (q_target_model.get_weights())
     # keras.utils.plot_model(model, 'my_first_model.png')
     # keras.utils.plot_model(model_get_action, 'model_get_action.png')
-
-

@@ -22,7 +22,7 @@ class simpleEnv(gym.Env):
         self.__name__ = "simple_ENV - Version {}".format(self.__version__)
         # General variables defining the environment
         self.is_finalized = False
-        self.MAX_TIME = 100
+        self.MAX_TIME = 25
         self.curr_step = -1
 
         self.curr_episode = -1
@@ -38,7 +38,7 @@ class simpleEnv(gym.Env):
         else:
             self.dimension = 10
 
-        self.MAX_POS = 2
+        self.MAX_POS = 1
         self.action_space = gym.spaces.Box(low=-self.MAX_POS, high=self.MAX_POS, shape=(self.dimension,),
                                            dtype=np.float32)
         print('Action space dim is: ', self.action_space)
@@ -49,9 +49,9 @@ class simpleEnv(gym.Env):
                                                 dtype=np.float32)
 
         self.reference_trajectory = np.ones(self.dimension)
-        self.response_matrix = np.eye(self.dimension) * ((np.random.uniform(-0.5,-0.25, self.dimension)))
+        self.response_matrix = np.eye(self.dimension) * ((np.random.uniform(-0.5, -0.25, self.dimension)))
 
-        self.delta_abs = np.zeros(self.action_space.shape[0])
+        self.abs_action = np.zeros(self.action_space.shape[0])
         print('State space dim is: ', self.observation_space)
         print(self.response_matrix)
 
@@ -64,27 +64,35 @@ class simpleEnv(gym.Env):
         state, reward = self._take_action(action)
         self.action_episode_memory[self.curr_episode].append(action)
         self.rewards[self.curr_episode].append(reward)
-        if reward < - 100 or reward > -.1 or self.curr_step > self.MAX_TIME:
+        if reward < - 1.1:
+            self.is_finalized = True
+            # reward-=5
+        elif reward > -.5:
+            self.is_finalized = True
+        #     # reward = 0
+        elif self.curr_step > self.MAX_TIME:
             self.is_finalized = True
 
         # if self.is_finalized:
-        #     print('Finished at:\n', state, reward, self.curr_step)
+        #     print('Finished at:\n', self.curr_step, state, reward, self.abs_action)
 
         return state, reward, self.is_finalized, {}
 
     def _take_action(self, delta_action):
         # print('d ', self.delta_abs)
-        abs_action = delta_action+ self.delta_abs
+        # delta_action *= 1e0
+        abs_action = delta_action + self.abs_action
         self.TOTAL_COUNTER += 1
-        state = np.dot(self.response_matrix, abs_action)
-        reward = np.sqrt(np.mean(np.square(state - self.reference_trajectory)))
-        self.delta_abs = abs_action.copy()
-        print('step', self.curr_step)
-        print('a ', self.delta_abs)
-        print('d ', delta_action)
-        print('s ', state)
-        print('r', reward)
-        return state, -reward
+        state = (np.dot(self.response_matrix, abs_action)- self.reference_trajectory)
+        state *= 1e-1
+        reward = -np.sqrt(np.mean(np.square(state)))
+        self.abs_action = abs_action.copy()
+        # print('step', self.curr_step)
+        # print('a ', self.abs_action)
+        # print('d ', delta_action)
+        # print('s ', max(state))
+        # print('r', reward)
+        return state, reward
 
     def reset(self):
         """
@@ -101,9 +109,12 @@ class simpleEnv(gym.Env):
         self.rewards.append([])
 
         self.is_finalized = False
-        self.delta_abs = np.random.uniform(-.5,.5,self.dimension)
-        init_state, init_reward = self._take_action(np.zeros(self.action_space.shape[0]))
-        print('inits ', init_reward)
+        out_of_range = True
+        while out_of_range:
+            self.abs_action = np.random.uniform(-1, 1, self.dimension)*10
+            init_state, init_reward = self._take_action(np.zeros(self.action_space.shape[0]))
+            out_of_range = init_reward<-1. or init_reward>-0.5
+        # print('inits ',init_reward)
         self.initial_conditions.append(init_state)
         return init_state
 
@@ -131,11 +142,13 @@ if __name__ == '__main__':
     actions = []
     states = []
 
-    zero_action =[]
+    zero_action = []
+
+
     def objective(action):
         actions.append(action.copy())
-        if len(zero_action)>0:
-            delta_action =  action-zero_action[-1]
+        if len(zero_action) > 0:
+            delta_action = action - zero_action[-1]
         else:
             delta_action = action
         # print('obj:', delta_action, action)
@@ -148,7 +161,6 @@ if __name__ == '__main__':
 
     # print(environment_instance.reset())
 
-
     def constr(action):
         if any(action > environment_instance.action_space.high[0]):
             return -1
@@ -156,6 +168,7 @@ if __name__ == '__main__':
             return -1
         else:
             return 1
+
 
     results = []
     for _ in range(1):
@@ -171,7 +184,3 @@ if __name__ == '__main__':
         results.append(res)
         print(res)
         print(objective(res))
-
-
-
-
