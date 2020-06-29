@@ -118,43 +118,61 @@ def plot_results(env, label):
             mean_rews.append(np.mean(rewards[i]))
     plot_suffix = ""#f', number of iterations: {env.TOTAL_COUNTER}, Linac4 time: {env.TOTAL_COUNTER / 600:.1f} h'
 
-    fig, axs = plt.subplots(2, 1, constrained_layout=True)
+    fig, axs = plt.subplots(2, 1)
 
     ax=axs[0]
-    ax.plot(iterations)
+    color = 'blue'
+    ax.plot(iterations, c=color)
+    ax.set_ylabel('steps', color=color)
+    ax.tick_params(axis='y', labelcolor=color)
+    ax1 = plt.twinx(ax)
+    color = 'k'
+    ax1.plot(np.cumsum(iterations), c=color)
+    ax1.set_ylabel('cumulative steps', color=color)
     ax.set_title('Iterations' + plot_suffix)
-    fig.suptitle(label, fontsize=12)
+    # fig.suptitle(label, fontsize=12)
 
     ax = axs[1]
-    ax.plot(final_rews, 'r--')
-
+    color = 'red'
+    ax.plot(starts, c=color)
+    ax.set_ylabel('starts', color=color)
+    ax.tick_params(axis='y', labelcolor=color)
     ax.set_title('Final reward per episode')  # + plot_suffix)
     ax.set_xlabel('Episodes (1)')
 
     ax1 = plt.twinx(ax)
     color = 'lime'
-    ax1.set_ylabel('starts', color=color)  # we already handled the x-label with ax1
+    ax1.set_ylabel('finals', color=color)  # we already handled the x-label with ax1
     ax1.tick_params(axis='y', labelcolor=color)
-    ax1.plot(starts, color=color)
-    plt.savefig(label+'.pdf')
-    # fig.tight_layout()
+    ax1.plot(final_rews, color=color)
+
+    fig.tight_layout()
+    plt.savefig(label + '.pdf')
     plt.show()
 
 
-    fig, axs = plt.subplots(1, 1)
-    axs.plot(sum_rews)
-    ax1 = plt.twinx(axs)
-    ax1.plot(mean_rews,c='lime')
+    fig, ax = plt.subplots(1, 1)
+    color = 'blue'
+    ax.plot(sum_rews, color)
+    ax.set_ylabel('cum. reward', color=color)
+    ax.tick_params(axis='y', labelcolor=color)
+    ax1 = plt.twinx(ax)
+    color = 'lime'
+    ax1.plot(mean_rews,c=color)
+    ax1.set_ylabel('mean', color=color)  # we already handled the x-label with ax1
+    ax1.tick_params(axis='y', labelcolor=color)
     plt.show()
 
 def plot_convergence(agent, label):
     losses, vs = agent.losses, agent.vs
+    losses2, vs2 = agent.losses2, agent.vs2
     fig, ax = plt.subplots()
     ax.set_title(label)
     ax.set_xlabel('# steps')
 
     color = 'tab:blue'
     ax.semilogy(losses, color=color)
+    ax.semilogy(losses2, color=color)
     ax.tick_params(axis='y', labelcolor=color)
     ax.set_ylabel('td_loss', color=color)
     # ax.set_ylim(0, 1)
@@ -162,10 +180,10 @@ def plot_convergence(agent, label):
     ax1 = plt.twinx(ax)
     # ax1.set_ylim(-2, 1)
     color = 'lime'
-
     ax1.set_ylabel('V', color=color)  # we already handled the x-label with ax1
     ax1.tick_params(axis='y', labelcolor=color)
     ax1.plot(vs, color=color)
+    ax1.plot(vs2, color=color)
     plt.savefig(label + 'convergence' + '.pdf')
     plt.show()
 
@@ -173,22 +191,22 @@ def plot_convergence(agent, label):
 if __name__ == '__main__':
 
     discount = 0.999
-    batch_size = 10
+    batch_size = 1000
     learning_rate = 1e-3
-    max_steps = 50
-    update_repeat = 20
-    max_episodes = 250
+    max_steps = 500
+    update_repeat = 1
+    max_episodes = 1250
     polyak = 0.999
     is_train = True
     is_continued = False if is_train else True
 
-    nafnet_kwargs = dict(hidden_sizes=[32, 32], activation=tf.nn.tanh
+    nafnet_kwargs = dict(hidden_sizes=[100, 100], activation=tf.nn.tanh
                          , weight_init=tf.random_uniform_initializer(-0.05, 0.05, seed=random_seed))
 
-    noise_info = dict(noise_function = lambda nr: max(0, (.5/(nr/10+1))))
+    noise_info = dict(noise_function = lambda nr: max(0, (0.25/(nr/10+1))))
 
-    prio_info = dict(alpha=.5, beta=.9, decay_function = lambda nr: max(0, (1/(nr/5+1))))
-    # prio_info = dict()
+    prio_info = dict(alpha=.15, beta=.9, decay_function = lambda nr: max(1e-16, (1-(nr/25))))
+    prio_info = dict()
 
     # filename = 'Scan_data.obj'
     # filehandler = open(filename, 'rb')

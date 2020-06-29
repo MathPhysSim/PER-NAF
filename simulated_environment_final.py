@@ -419,7 +419,7 @@ class e_trajectory_simENV(gym.Env):
         logging.info("e_trajectory_simENV - Version {}".format(self.__version__))
 
         # General variables defining the environment
-        self.MAX_TIME = 50
+        self.MAX_TIME = 100
         self.is_finalized = False
         self.current_episode = -1
         self.episode_length = None
@@ -431,8 +431,6 @@ class e_trajectory_simENV(gym.Env):
         self.TOTAL_COUNTER = 0
 
         self.seed()
-
-
         self.twissH, self.twissV = readAWAKEelectronTwiss()
 
         self.bpmsH = self.twissH.getElements("BPM")
