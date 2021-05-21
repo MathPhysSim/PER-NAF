@@ -47,7 +47,7 @@ setup(
     url = 'https://github.com/MathPhysSim/PER-NAF',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    install_requires=['tensorflow==1.14', 'numpy', 'gym'],
+    install_requires=['tensorflow==2.5.0', 'numpy', 'gym'],
     packages=find_packages(),
     include_package_data=True,
     classifiers=[
