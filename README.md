@@ -1,7 +1,7 @@
 # PER-NAF
 An implementation of the Normalized Advantage Function Reinforcement Learning Algorithm with Prioritized Experience Replay
 
-##Summary
+## Summary
 * The original paper of this code is: https://arxiv.org/abs/1603.00748
 * The code is mainly based on: https://github.com/carpedm20/NAF-tensorflow/
 * Additionally I added the prioritized experience replay: https://arxiv.org/abs/1511.05952
@@ -10,7 +10,7 @@ An implementation of the Normalized Advantage Function Reinforcement Learning Al
 Thanks openAI and Kim!
 
 
-##Some Advices from experience in RL
+## Some Advices from experience in RL
 
 * Normalize the state and action space as well as the reward is a good practice
 * Visualise as much as possible to get an intuition about the method as possible bugs
@@ -18,7 +18,7 @@ Thanks openAI and Kim!
 
 
 
-> Coding makes happy 
+> Coding makes happy 🙃
 
 
 
