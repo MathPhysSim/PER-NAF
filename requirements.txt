@@ -1,0 +1,9 @@
+torch
+numpy
+gymnasium
+shimmy
+matplotlib
+scipy
+pandas
+tqdm
+pypandoc
