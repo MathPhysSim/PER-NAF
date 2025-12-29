@@ -67,9 +67,19 @@ def main():
         noise_info=tuned_noise
     )
 
+    # 4. PER-NAF (Single Q + PER)
+    config_per_naf = dict(
+        learning_rate=1e-3, batch_size=100, buffer_size=100000,
+        discount=0.99, polyak=0.999, update_repeat=5,
+        prio_info=dict(alpha=0.6, beta=0.4),
+        double_q=False,
+        noise_info=tuned_noise
+    )
+
     # Run
     rewards_naf = run_experiment("NAF (Single Q)", config_naf, steps=steps)
     rewards_naf2 = run_experiment("NAF2 (Double Q)", config_naf2, steps=steps)
+    rewards_per_naf = run_experiment("PER-NAF (Single Q + PER)", config_per_naf, steps=steps)
     rewards_per_naf2 = run_experiment("PER-NAF2 (Double Q + PER)", config_per_naf2, steps=steps)
     
     # Plotting
@@ -77,6 +87,7 @@ def main():
     
     plt.plot(moving_average(rewards_naf), label='NAF (Single Q)', alpha=0.7)
     plt.plot(moving_average(rewards_naf2), label='NAF2 (Double Q)', alpha=0.7)
+    plt.plot(moving_average(rewards_per_naf), label='PER-NAF (Single Q + PER)', alpha=0.7)
     plt.plot(moving_average(rewards_per_naf2), label='PER-NAF2 (Double Q + PER)', alpha=0.7)
     
     plt.title(f'Performance Comparison (Rewards) on Pendulum-v1 ({steps} steps)')
