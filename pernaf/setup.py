@@ -1,53 +1,34 @@
-import os
-
+from os import path
 from setuptools import setup, find_packages
 
-try:
-    from pypandoc import convert, convert_text
-
-
-    def read_md(file_path):
-        return convert_text(file_path, to='rst', format='markdown')
-
-except ImportError:
-    convert = None
-    print(
-        "warning: pypandoc module not found, "
-        "could not convert Asciidoc to RST"
-    )
-    def read_md(file_path):
-         with open(file_path, 'r') as f:
-            return f.read()
-
-# read the contents of your README file
-from os import path
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
-
-
-# README = os.path.join(os.path.dirname(__file__), 'README.md')
-
-
-def strip_comments(l):
-    return l.split('#', 1)[0].strip()
-
-
-def reqs(*f):
-    return list(filter(None, [strip_comments(l) for l in open(
-        os.path.join(os.getcwd(), *f)).readlines()]))
+readme_path = path.join(this_directory, "README.md")
+long_description = ""
+if path.exists(readme_path):
+    with open(readme_path, encoding="utf-8") as f:
+        long_description = f.read()
 
 setup(
-    name='pernaf',
-    version="0.0.14",
+    name="pernaf",
+    version="0.2.0",
     author="Simon Hirlaender",
-    author_email="simon.hirlaender@cern.ch",
-    description="An implementation of the Normalized Advantage Function Reinforcement Learning Algorithm with "
-                "Prioritized Experience Replay",
-    url = 'https://github.com/MathPhysSim/PER-NAF',
+    author_email="simon.hirlaender@plus.ac.at",
+    description=(
+        "High-performance Normalized Advantage Function (NAF / NAF2 / PER-NAF / PER-NAF2) "
+        "Reinforcement Learning with JAX XLA + Numba LLVM + PyTorch backends"
+    ),
+    url="https://github.com/MathPhysSim/PER-NAF",
     long_description=long_description,
-    long_description_content_type='text/markdown',
-    install_requires=['tensorflow==1.15.2', 'numpy', 'gym'],
+    long_description_content_type="text/markdown",
+    install_requires=[
+        "numpy>=1.24.0",
+        "torch>=2.0.0",
+        "gymnasium>=0.29.0",
+        "numba>=0.58.0",
+        "jax>=0.4.20",
+        "optax>=0.1.7",
+        "tqdm>=4.65.0",
+    ],
     packages=find_packages(),
     include_package_data=True,
     classifiers=[
@@ -55,5 +36,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6'
+    python_requires=">=3.10",
 )
